@@ -147,4 +147,3 @@ SUCCESS requires every required leaf and parent gate to PASS, mandatory independ
 For DIRECT, LOOKUP, and ACTION, respond naturally with only the detail the user needs.
 
 For STAGED work, return two to six concise lines: Status, Completed, Verified, and Remaining when applicable. Name the actual review mode; do not imply independence that did not occur.
-

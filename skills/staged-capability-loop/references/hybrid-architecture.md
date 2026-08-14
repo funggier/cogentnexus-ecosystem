@@ -296,4 +296,3 @@ Before deployment, test:
 8. resolution closes the dispute with new evidence;
 9. repair modifies only allowed paths;
 10. root SUCCESS is impossible with missing gates or unresolved disputes.
-
