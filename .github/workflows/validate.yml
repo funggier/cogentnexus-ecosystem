@@ -1,0 +1,41 @@
+name: Validate
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ["3.11", "3.14"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Validate required files
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          required = [
+              Path('VERSION'),
+              Path('README.md'),
+              Path('docs/COMPATIBILITY.md'),
+              Path('docs/INTEGRATION.md'),
+              Path('docs/releases/v0.2.0.md'),
+              Path('skills/staged-capability-loop/SKILL.md'),
+              Path('skills/staged-capability-loop/references/hybrid-architecture.md'),
+              Path('skills/staged-capability-loop/references/hybrid-review-guide.md'),
+              Path('templates/AGENTS.ecosystem.md'),
+          ]
+          missing = [str(p) for p in required if not p.is_file() or not p.read_text(encoding='utf-8').strip()]
+          if missing:
+              raise SystemExit(f'Missing/empty required files: {missing}')
+          PY
+      - run: python -m unittest discover -s tests -v
+      - run: python -m py_compile scripts/install.py
