@@ -1,35 +1,68 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
-from scripts.install import BEGIN, END, merge_agents
+from scripts.install import ROOT, install, validate_core_baseline
 
 
 class EcosystemInstallerTests(unittest.TestCase):
-    def test_append_preserves_user_content(self):
-        updated, changed = merge_agents("# User policy\n", "## Ecosystem")
-        self.assertTrue(changed)
-        self.assertTrue(updated.startswith("# User policy\n"))
-        self.assertEqual(updated.count(BEGIN), 1)
-        self.assertEqual(updated.count(END), 1)
+    def _make_core_surface(self, workspace: Path) -> Path:
+        core = workspace / "skills" / "cogentnexus"
+        (core / "scripts").mkdir(parents=True)
+        (core / "templates").mkdir(parents=True)
+        (core / "SKILL.md").write_text("# CogentNexus\n", encoding="utf-8")
+        host = core / "scripts" / "host.py"
+        host.write_text("# host\n", encoding="utf-8")
+        (core / "templates" / "AGENTS.cogentnexus.md").write_text("# core policy\n", encoding="utf-8")
+        return host
 
-    def test_update_same_block_is_idempotent(self):
-        first, _ = merge_agents("", "## Ecosystem")
-        second, changed = merge_agents(first, "## Ecosystem")
-        self.assertFalse(changed)
-        self.assertEqual(first, second)
+    def test_policy_selects_lane_before_core_loading(self):
+        policy = (ROOT / "templates" / "AGENTS.ecosystem.md").read_text(encoding="utf-8")
+        self.assertIn("Choose the lightest reliable lane first", policy)
+        self.assertIn("Load the `cogentnexus` skill", policy)
+        self.assertNotIn("Load and apply the `cogentnexus` skill before reasoning", policy)
+        self.assertNotIn("Use CogentNexus for every user request", policy)
 
-    def test_replaces_core_policy_with_ecosystem_policy(self):
-        existing = f"# User\n\n{BEGIN}\n## Core\n{END}\n"
-        updated, changed = merge_agents(existing, "## Ecosystem")
-        self.assertTrue(changed)
-        self.assertIn("## Ecosystem", updated)
-        self.assertNotIn("## Core", updated)
-        self.assertEqual(updated.count(BEGIN), 1)
+    def test_core_baseline_requires_host_controller(self):
+        with TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            core = workspace / "skills" / "cogentnexus"
+            core.mkdir(parents=True)
+            (core / "SKILL.md").write_text("# CogentNexus\n", encoding="utf-8")
+            with self.assertRaises(RuntimeError):
+                validate_core_baseline(workspace)
 
-    def test_incomplete_block_fails_closed(self):
-        with self.assertRaises(ValueError):
-            merge_agents(f"{BEGIN}\nbroken", "## Ecosystem")
+    def test_core_baseline_accepts_required_surface(self):
+        with TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            expected = self._make_core_surface(workspace)
+            actual = validate_core_baseline(workspace)
+            self.assertTrue(actual.samefile(expected))
+
+    @patch("scripts.install.run_checked")
+    def test_install_registers_policy_with_host(self, run_checked):
+        with TemporaryDirectory() as temporary:
+            workspace = Path(temporary) / "workspace"
+            host = self._make_core_surface(workspace)
+            install(workspace, skip_policy=False)
+            installed = workspace / "skills" / "staged-capability-loop" / "SKILL.md"
+            self.assertTrue(installed.is_file())
+            run_checked.assert_called_once()
+            command = run_checked.call_args.args[0]
+            self.assertTrue(Path(command[1]).samefile(host))
+            self.assertEqual(command[2], "--root")
+            self.assertEqual(Path(command[3]).name, ".cogent")
+            self.assertEqual(command[4:6], ["policy", "register"])
+            self.assertTrue(Path(command[6]).samefile(ROOT / "templates" / "AGENTS.ecosystem.md"))
+
+    @patch("scripts.install.run_checked")
+    def test_skip_policy_does_not_register(self, run_checked):
+        with TemporaryDirectory() as temporary:
+            workspace = Path(temporary) / "workspace"
+            self._make_core_surface(workspace)
+            install(workspace, skip_policy=True)
+            run_checked.assert_not_called()
 
 
 if __name__ == "__main__":
