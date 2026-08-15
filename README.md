@@ -6,7 +6,7 @@ The clean baseline separates responsibilities so simple conversation stays simpl
 
 ## Projects
 
-- [CogentNexus Core](https://github.com/funggier/cogentnexus) — external Host Controller, Ticket-first continuity, lifecycle ownership, deterministic recovery, durable workflows, evidence, and terminal delivery support.
+- [CogentNexus Core](https://github.com/funggier/cogentnexus) — external Host Controller, Ticket-first continuity, lifecycle/policy ownership, deterministic recovery, durable workflows, evidence, and terminal delivery support.
 - [Staged Capability Loop](skills/staged-capability-loop/) — DIRECT / LOOKUP / ACTION / STAGED admission plus review/verification policy for complex work.
 
 ```text
@@ -45,17 +45,37 @@ CogentNexus Core defines Host ownership modes:
 
 The ecosystem policy is active only in managed operation. Native OpenClaw must remain available when CogentNexus is disabled.
 
+## Durable policy registration
+
+Ecosystem v0.2 registers its combined managed policy with the Core Host instead of merely overwriting `AGENTS.md`.
+
+The Host stores the selected snapshot under:
+
+```text
+.cogent/host/managed-policy.md
+```
+
+This means:
+
+- `cnx disable` removes the active managed block but preserves the selected Ecosystem policy;
+- `cnx enable` automatically restores the same Ecosystem policy;
+- Core updates preserve the registered companion policy;
+- `cnx policy reset` explicitly returns to the Core-only default.
+
 ## Installation
 
 1. Install a compatible CogentNexus Core release.
-2. Clone/download this ecosystem release.
-3. Install the companion skill/policy into the same OpenClaw workspace.
+2. Verify `cnx status` is healthy.
+3. Download/clone this ecosystem release.
+4. Install the companion into the same OpenClaw workspace.
 
 ```powershell
 python .\scripts\install.py --workspace "$HOME\.openclaw\workspace"
 ```
 
-The installer copies `staged-capability-loop`, validates required files, backs up the previous installed companion, and replaces only the bounded CogentNexus managed block in `AGENTS.md`.
+The installer copies `staged-capability-loop`, validates required files, backs up the previous installed companion, and registers `templates/AGENTS.ecosystem.md` durably through the Core Host.
+
+Detailed Thai guide: [docs/INSTALL.th.md](docs/INSTALL.th.md)
 
 ## Request lanes
 
