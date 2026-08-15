@@ -42,6 +42,7 @@ jobs:
           test -s README.md
           test -s docs/INTEGRATION.md
           test -s docs/COMPATIBILITY.md
+          test -s docs/INSTALL.th.md
           test -s "docs/releases/v${expected}.md"
           test -s templates/AGENTS.ecosystem.md
           test -s skills/staged-capability-loop/SKILL.md
