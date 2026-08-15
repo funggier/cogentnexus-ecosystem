@@ -75,13 +75,16 @@ Installer จะ:
 2. backup `staged-capability-loop` เดิมถ้ามี
 3. copy skill ใหม่
 4. validate ไฟล์หลัก
-5. backup `AGENTS.md`
-6. แทนเฉพาะ block ระหว่าง `<!-- cogentnexus:begin -->` และ `<!-- cogentnexus:end -->`
-7. ไม่แตะ policy ของคุณที่อยู่นอก managed block
+5. ส่ง combined Ecosystem policy ให้ Core Host ด้วย `policy register`
+6. Host เก็บ policy snapshot แบบ durable ไว้ใต้ `.cogent\host\managed-policy.md`
+7. ถ้าอยู่ MANAGED/MAINTENANCE จะ apply managed block ให้ `AGENTS.md`
+8. preserve เนื้อหาของคุณที่อยู่นอก managed block
+
+ข้อสำคัญคือ **Ecosystem ไม่ได้เป็นเจ้าของ lifecycle เอง** แต่ลงทะเบียน policy ที่เลือกไว้กับ Core Host ซึ่งเป็นเจ้าของการ restore policy หลัง disable/enable หรือการอัปเดต Core
 
 เมื่อสำเร็จจะบอกให้เริ่ม OpenClaw session ใหม่
 
-## 6. ตรวจไฟล์หลังติดตั้ง
+## 6. ตรวจไฟล์และ policy หลังติดตั้ง
 
 ```powershell
 Set-Location "$HOME\.openclaw\workspace"
@@ -90,7 +93,19 @@ Test-Path ".\skills\staged-capability-loop\SKILL.md"
 
 ต้องได้ `True`
 
-ตรวจ managed block:
+ตรวจ policy ที่ Host จำไว้:
+
+```powershell
+.\cnx.cmd policy status
+```
+
+ควรเห็น `policy` ที่มี SHA256/bytes และ path ไปยัง:
+
+```text
+.openclaw\workspace\.cogent\host\managed-policy.md
+```
+
+ตรวจ managed block ที่ใช้งานอยู่:
 
 ```powershell
 Get-Content ".\AGENTS.md"
@@ -138,13 +153,29 @@ Ticket-first continuity
 
 สิ่งที่ต้องการคือระบบสามารถเลือก STAGED เมื่อ complexity/risk เหมาะสม และใช้ durable workflow/verification เฉพาะตรงนั้น
 
-## 10. ทดสอบ PASSTHROUGH
+## 10. ทดสอบ PASSTHROUGH และการคืน Ecosystem policy อัตโนมัติ
+
+ปิด CogentNexus:
 
 ```powershell
 .\cnx.cmd disable
 ```
 
-หลัง disable OpenClaw ต้องยังใช้งานได้ตามปกติ และ CogentNexus managed policy จะถูกเอาออกโดย Core Host
+หลัง disable:
+
+- OpenClaw ต้องยังใช้งานได้ตามปกติ
+- managed block ถูกเอาออกจาก `AGENTS.md`
+- CogentNexus plugin/background ownership ถูกปิด
+- `.cogent\host\managed-policy.md` **ยังอยู่**
+
+ตรวจ:
+
+```powershell
+.\cnx.cmd status
+.\cnx.cmd policy status
+```
+
+Host mode ควรเป็น `passthrough` แต่ policy snapshot ยังมี SHA256 เดิม
 
 เปิดกลับ:
 
@@ -152,9 +183,33 @@ Ticket-first continuity
 .\cnx.cmd enable
 ```
 
-จากนั้นรัน ecosystem installer ซ้ำถ้าต้องการให้ combined ecosystem policy กลับมาแทน Core-only policy block แล้ว restart/open fresh session อีกครั้ง
+Core Host จะ apply **Ecosystem policy ที่ลงทะเบียนไว้เดิมโดยอัตโนมัติ** ไม่ย้อนกลับไป Core-only policy
 
-> หมายเหตุ: `cnx enable` คืน Core managed policy; ecosystem installer เป็นเจ้าของ combined policy ดังนั้นหลัง PASSTHROUGH -> enable ให้ reinstall ecosystem companion เพื่อคืน combined routing policy เวอร์ชันที่ต้องการ
+ตรวจอีกครั้ง:
+
+```powershell
+Get-Content ".\AGENTS.md"
+```
+
+ควรกลับมาเห็น:
+
+```text
+CogentNexus Ecosystem - Managed Continuity and Routing
+```
+
+ดังนั้นหลัง `disable -> enable` **ไม่ต้อง reinstall Ecosystem**
+
+## 11. ถ้าต้องการกลับไปใช้ Core-only policy
+
+ใช้ Core Host reset:
+
+```powershell
+.\cnx.cmd policy reset
+```
+
+จากนั้น policy ที่ Host จำไว้จะกลับเป็น Core default
+
+ถ้าต้องการ Ecosystem policy อีกครั้ง ให้รัน Ecosystem installer หรือ register template ของ Ecosystem ใหม่
 
 ## Checklist
 
@@ -164,8 +219,10 @@ Ticket-first continuity
 [ ] ecosystem SHA256 ผ่าน
 [ ] install.py สำเร็จ
 [ ] staged-capability-loop มีอยู่
+[ ] cnx policy status เห็น durable policy snapshot
 [ ] AGENTS managed block เป็น Ecosystem policy
 [ ] greeting ใช้ DIRECT
 [ ] complex task สามารถใช้ STAGED
 [ ] cnx disable แล้ว OpenClaw native ใช้ได้
+[ ] cnx enable แล้ว Ecosystem policy กลับมาเอง
 ```
