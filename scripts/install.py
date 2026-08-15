@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install CogentNexus ecosystem companion skills into an OpenClaw workspace."""
+"""Install CogentNexus Ecosystem companion routing into an OpenClaw workspace."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from pathlib import Path
 BEGIN = "<!-- cogentnexus:begin -->"
 END = "<!-- cogentnexus:end -->"
 ROOT = Path(__file__).resolve().parents[1]
+VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip() if (ROOT / "VERSION").exists() else "unknown"
 
 
 def merge_agents(existing: str, policy: str) -> tuple[str, bool]:
@@ -29,15 +30,29 @@ def merge_agents(existing: str, policy: str) -> tuple[str, bool]:
     return updated, updated != existing
 
 
+def validate_core_baseline(workspace: Path) -> None:
+    core = workspace / "skills" / "cogentnexus"
+    required = (
+        core / "SKILL.md",
+        core / "scripts" / "host.py",
+        core / "templates" / "AGENTS.cogentnexus.md",
+    )
+    missing = [str(path) for path in required if not path.is_file()]
+    if missing:
+        raise RuntimeError(
+            "CogentNexus Core v0.8+ Host baseline is not installed in this workspace. "
+            "Install a compatible funggier/cogentnexus release first. Missing: " + ", ".join(missing)
+        )
+
+
 def install(workspace: Path, skip_policy: bool = False) -> None:
     workspace = workspace.resolve()
+    validate_core_baseline(workspace)
+
     source = ROOT / "skills" / "staged-capability-loop"
     target = workspace / "skills" / "staged-capability-loop"
     backup_root = workspace / ".cogent" / "install-backups"
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-
-    if not (workspace / "skills" / "cogentnexus" / "SKILL.md").exists():
-        raise RuntimeError("CogentNexus Core is not installed. Install funggier/cogentnexus first.")
 
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists():
@@ -46,7 +61,11 @@ def install(workspace: Path, skip_policy: bool = False) -> None:
         shutil.rmtree(target)
     shutil.copytree(source, target)
 
-    for required in (target / "SKILL.md", target / "references" / "hybrid-architecture.md", target / "references" / "hybrid-review-guide.md"):
+    for required in (
+        target / "SKILL.md",
+        target / "references" / "hybrid-architecture.md",
+        target / "references" / "hybrid-review-guide.md",
+    ):
         text = required.read_text(encoding="utf-8")
         if not text.strip() or "\ufffd" in text:
             raise RuntimeError(f"Installed skill validation failed: {required}")
@@ -64,8 +83,10 @@ def install(workspace: Path, skip_policy: bool = False) -> None:
             temporary.write_text(updated, encoding="utf-8", newline="\n")
             temporary.replace(agents)
 
+    print(f"Installed CogentNexus Ecosystem v{VERSION}")
     print(f"Installed staged-capability-loop to {target}")
-    print("CogentNexus Ecosystem policy is active." if not skip_policy else "AGENTS.md policy update skipped.")
+    print("Combined CogentNexus continuity + lane policy is active." if not skip_policy else "AGENTS.md policy update skipped.")
+    print("Start a fresh OpenClaw session before testing DIRECT/STAGED routing.")
 
 
 def main() -> int:
