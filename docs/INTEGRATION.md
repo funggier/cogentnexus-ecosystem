@@ -5,7 +5,7 @@ This document defines the clean integration boundary for Ecosystem v0.2+ with Co
 ## Responsibility boundary
 
 - **OpenClaw** hosts channels, conversations, sessions, skills, plugins, and tools.
-- **CogentNexus Host Controller** runs outside model inference and owns managed continuity: durable Ticket intake, desired runtime state, lifecycle reconciliation, deterministic recovery supervision, cancellation, and session fencing.
+- **CogentNexus Host Controller** runs outside model inference and owns managed continuity: durable Ticket intake, desired runtime state, selected managed policy, lifecycle reconciliation, deterministic recovery supervision, cancellation, and session fencing.
 - **CogentNexus durable runtime** owns checkpointed workflows, controller state, evidence, recovery, context handoff, and terminal delivery for work that actually needs those mechanisms.
 - **Staged Capability Loop** chooses DIRECT / LOOKUP / ACTION / STAGED and defines staged review/verification behavior.
 
@@ -51,9 +51,15 @@ Core Host modes:
 
 `disable` means PASSTHROUGH and is intentionally different from `stop`, which means MAINTENANCE.
 
-## Managed policy block
+## Managed policy ownership
 
-The ecosystem installer owns one bounded section of workspace `AGENTS.md`:
+The Core Host owns the currently selected managed policy as durable state:
+
+```text
+.cogent/host/managed-policy.md
+```
+
+The Ecosystem installer registers `templates/AGENTS.ecosystem.md` through the Host `policy register` command. The Host then applies that registered policy inside the bounded `AGENTS.md` block:
 
 ```text
 <!-- cogentnexus:begin -->
@@ -61,11 +67,17 @@ The ecosystem installer owns one bounded section of workspace `AGENTS.md`:
 <!-- cogentnexus:end -->
 ```
 
-Existing content outside those markers is preserved. Reinstallation updates the same block idempotently and backs up prior state.
+Existing user content outside those markers is preserved.
 
-Installing the ecosystem companion replaces the Core-only managed policy block with the combined continuity + four-lane routing policy. It must never reintroduce the old ordering where `cogentnexus` is loaded before deciding whether the request is DIRECT.
+This ownership model is important:
 
-PASSTHROUGH removes/disables the managed block through Core Host behavior; the companion itself does not redefine PASSTHROUGH semantics.
+- installing Ecosystem replaces the selected Core-only policy with the combined continuity + four-lane policy;
+- `cnx disable` removes the active managed block but preserves the selected Ecosystem snapshot;
+- `cnx enable` restores the same Ecosystem policy automatically;
+- Core upgrades preserve the registered companion policy instead of silently reverting it;
+- `cnx policy reset` is the explicit way to return to the Core-only policy.
+
+The combined policy must never reintroduce the bootstrap inversion where `cogentnexus` is loaded before deciding whether the request is DIRECT.
 
 ## Recovery invariant
 
@@ -81,11 +93,12 @@ This is a continuity rule, not a workflow-depth rule.
 
 1. Install a compatible CogentNexus Core/Host release.
 2. Verify `cnx status` reports MANAGED and Gateway health.
-3. Install the Ecosystem companion into the same workspace.
+3. Install the Ecosystem companion into the same workspace; confirm `cnx policy status` reports a registered snapshot.
 4. Start a fresh OpenClaw session so skill/workspace metadata reload.
 5. Verify a greeting stays DIRECT.
 6. Verify a consequential multi-step task selects STAGED.
 7. Verify `cnx disable` returns OpenClaw to native PASSTHROUGH behavior.
+8. Verify `cnx enable` restores the Ecosystem managed policy without reinstalling it.
 
 ## Compatibility
 
