@@ -27,6 +27,7 @@ jobs:
               Path('README.md'),
               Path('docs/COMPATIBILITY.md'),
               Path('docs/INTEGRATION.md'),
+              Path('docs/INSTALL.th.md'),
               Path('docs/releases/v0.2.0.md'),
               Path('skills/staged-capability-loop/SKILL.md'),
               Path('skills/staged-capability-loop/references/hybrid-architecture.md'),
