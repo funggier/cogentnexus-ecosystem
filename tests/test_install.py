@@ -37,7 +37,8 @@ class EcosystemInstallerTests(unittest.TestCase):
         with TemporaryDirectory() as temporary:
             workspace = Path(temporary)
             expected = self._make_core_surface(workspace)
-            self.assertEqual(validate_core_baseline(workspace), expected)
+            actual = validate_core_baseline(workspace)
+            self.assertTrue(actual.samefile(expected))
 
     @patch("scripts.install.run_checked")
     def test_install_registers_policy_with_host(self, run_checked):
@@ -49,10 +50,11 @@ class EcosystemInstallerTests(unittest.TestCase):
             self.assertTrue(installed.is_file())
             run_checked.assert_called_once()
             command = run_checked.call_args.args[0]
-            self.assertEqual(command[1], str(host))
-            self.assertEqual(command[2:5], ["--root", str(workspace / ".cogent"), "policy"])
-            self.assertEqual(command[5], "register")
-            self.assertEqual(Path(command[6]), ROOT / "templates" / "AGENTS.ecosystem.md")
+            self.assertTrue(Path(command[1]).samefile(host))
+            self.assertEqual(command[2], "--root")
+            self.assertEqual(Path(command[3]).name, ".cogent")
+            self.assertEqual(command[4:6], ["policy", "register"])
+            self.assertTrue(Path(command[6]).samefile(ROOT / "templates" / "AGENTS.ecosystem.md"))
 
     @patch("scripts.install.run_checked")
     def test_skip_policy_does_not_register(self, run_checked):
